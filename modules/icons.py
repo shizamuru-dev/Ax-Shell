@@ -35,7 +35,7 @@ battery: str = "&#xea38;"
 memory: str = "&#xfa97;"
 cpu: str = "&#xef8e;"
 gpu: str = "&#xf233;"
-
+refresh = "&#xf3ae;"
 # AIchat
 reload: str = "&#xf3ae;"
 detach: str = "&#xea99;"
