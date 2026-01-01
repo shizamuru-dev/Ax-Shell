@@ -97,7 +97,7 @@ class NetworkConnections(Box):
             name="network-header",
             start_children=[self.back_button],
             center_children=[Label(name="network-title", label="Wi-Fi Networks")],
-            end_children=[Box(orientation="horizontal", spacing=4, children=[self.refresh_button])]
+            end_children=[Box(orientation="horizontal", spacing=4, children=[self.wifi_toggle_button, self.refresh_button])]
         )
 
         self.ap_list_box = Box(orientation="vertical", spacing=4)

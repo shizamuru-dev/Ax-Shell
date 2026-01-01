@@ -3,6 +3,7 @@ import math
 import gi
 from fabric.audio.service import Audio
 from fabric.widgets.box import Box
+from fabric.widgets.button import Button
 from fabric.widgets.label import Label
 from fabric.widgets.scale import Scale
 from fabric.widgets.scrolledwindow import ScrolledWindow
@@ -12,6 +13,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 import config.data as data
+import modules.icons as icons
 
 vertical_mode = (
     True
@@ -81,7 +83,7 @@ class MixerSlider(Scale):
 
 
 class MixerSection(Box):
-    def __init__(self, title, **kwargs):
+    def __init__(self, title, audio_service, **kwargs):
         super().__init__(
             name="mixer-section",
             orientation="v",
@@ -90,6 +92,7 @@ class MixerSection(Box):
             v_expand=False,  # Prevent vertical stretching
         )
 
+        self.audio = audio_service
         self.title_label = Label(
             name="mixer-section-title",
             label=title,
@@ -108,7 +111,7 @@ class MixerSection(Box):
         self.add(self.title_label)
         self.add(self.content_box)
 
-    def update_streams(self, streams):
+    def update_streams(self, streams, devices=None, default_device=None):
         for child in self.content_box.get_children():
             self.content_box.remove(child)
 
@@ -124,6 +127,8 @@ class MixerSection(Box):
                 v_expand=False,  # Prevent vertical stretching
             )
 
+            header_box = Box(orientation="h", spacing=4)
+
             label = Label(
                 name="mixer-stream-label",
                 label=f"[{math.ceil(stream.volume)}%] {stream.description}",
@@ -135,13 +140,59 @@ class MixerSection(Box):
                 height_request=20,  # Fixed height for labels
             )
 
+            header_box.add(label)
+
+            # Check if device and add selection button
+            is_device = False
+            is_default = False
+            
+            if devices and stream in devices:
+                is_device = True
+                # Robust equality check
+                if default_device:
+                    if stream == default_device:
+                        is_default = True
+                    elif hasattr(stream, "name") and hasattr(default_device, "name") and stream.name == default_device.name:
+                        is_default = True
+                    elif hasattr(stream, "id") and hasattr(default_device, "id") and stream.id == default_device.id:
+                        is_default = True
+
+            if is_device:
+                icon = icons.accept if is_default else icons.circle
+                
+                btn_kwargs = {}
+                if not is_default:
+                    btn_kwargs["on_clicked"] = lambda *_, s=stream: self._set_default_device(s)
+
+                btn = Button(
+                    name="device-select-btn",
+                    child=Label(markup=icon),
+                    v_align="center",
+                    h_align="end",
+                    **btn_kwargs
+                )
+                if is_default:
+                    btn.add_style_class("active-device")
+                header_box.add(btn)
+
             slider = MixerSlider(stream)
 
-            stream_container.add(label)
+            stream_container.add(header_box)
             stream_container.add(slider)
             self.content_box.add(stream_container)
 
         self.content_box.show_all()
+
+    def _set_default_device(self, stream):
+        print(f"Setting default device to: {stream.description}")
+        
+        try:
+            if stream.type == "speakers":
+                self.audio._control.set_default_sink(stream.stream)
+            elif stream.type == "microphones":
+                self.audio._control.set_default_source(stream.stream)
+        except Exception as e:
+            print(f"Error setting default device: {e}")
 
 
 class Mixer(Box):
@@ -183,7 +234,7 @@ class Mixer(Box):
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,  # Vertical scrollbar when needed
             hscrollbar_policy=Gtk.PolicyType.NEVER,      # Disable horizontal scrollbar
         )
-        self.outputs_section = MixerSection("Outputs")
+        self.outputs_section = MixerSection("Outputs", self.audio)
         self.outputs_scrolled.add(self.outputs_section)
         self.outputs_scrolled.set_size_request(-1, 150)  # Fixed height of 150px
         self.outputs_scrolled.set_max_content_height(150)  # Enforce max height
@@ -196,7 +247,7 @@ class Mixer(Box):
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,  # Vertical scrollbar when needed
             hscrollbar_policy=Gtk.PolicyType.NEVER,      # Disable horizontal scrollbar
         )
-        self.inputs_section = MixerSection("Inputs")
+        self.inputs_section = MixerSection("Inputs", self.audio)
         self.inputs_scrolled.add(self.inputs_section)
         self.inputs_scrolled.set_size_request(-1, 150)  # Fixed height of 150px
         self.inputs_scrolled.set_max_content_height(150)  # Enforce max height
@@ -208,26 +259,38 @@ class Mixer(Box):
         self.set_size_request(-1, 300)  # Optional: Set total height to 300px (150px per section)
 
         self.audio.connect("changed", self.on_audio_changed)
+        self.audio.connect("notify::speaker", self.on_audio_changed)
+        self.audio.connect("notify::microphone", self.on_audio_changed)
         self.audio.connect("stream-added", self.on_audio_changed)
         self.audio.connect("stream-removed", self.on_audio_changed)
 
         self.update_mixer()
+        GLib.timeout_add(250, self.update_mixer)
         self.show_all()
 
     def on_audio_changed(self, *args):
-        self.update_mixer()
+        # Add a small delay to allow the audio service to update its state
+        GLib.timeout_add(50, self.update_mixer)
 
     def update_mixer(self):
         outputs = []
         inputs = []
 
-        if self.audio.speakers:
-            outputs.extend(self.audio.speakers)
-        outputs.extend(self.audio.applications)
+        current_speakers = self.audio.speakers or []
+        current_mics = self.audio.microphones or []
+        
+        # Fallback to default device if list is empty
+        if not current_speakers and self.audio.speaker:
+            current_speakers = [self.audio.speaker]
+            
+        if not current_mics and self.audio.microphone:
+            current_mics = [self.audio.microphone]
 
-        if self.audio.microphones:
-            inputs.extend(self.audio.microphones)
-        inputs.extend(self.audio.recorders)
+        outputs.extend(current_speakers)
+        outputs.extend(self.audio.applications or [])
 
-        self.outputs_section.update_streams(outputs)
-        self.inputs_section.update_streams(inputs)
+        inputs.extend(current_mics)
+        inputs.extend(self.audio.recorders or [])
+
+        self.outputs_section.update_streams(outputs, current_speakers, self.audio.speaker)
+        self.inputs_section.update_streams(inputs, current_mics, self.audio.microphone)

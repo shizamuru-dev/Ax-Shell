@@ -129,13 +129,17 @@ class Wifi(Service):
 
     @Property(int, "readable")
     def internet(self):
+        active_conn = self._device.get_active_connection()
+        if not active_conn:
+            return "disconnected"
+
         return {
             NM.ActiveConnectionState.ACTIVATED: "activated",
             NM.ActiveConnectionState.ACTIVATING: "activating",
             NM.ActiveConnectionState.DEACTIVATING: "deactivating",
             NM.ActiveConnectionState.DEACTIVATED: "deactivated",
         }.get(
-            self._device.get_active_connection().get_state(),
+            active_conn.get_state(),
             "unknown",
         )
 
@@ -208,13 +212,17 @@ class Ethernet(Service):
 
     @Property(str, "readable")
     def internet(self) -> str:
+        active_conn = self._device.get_active_connection()
+        if not active_conn:
+            return "disconnected"
+
         return {
             NM.ActiveConnectionState.ACTIVATED: "activated",
             NM.ActiveConnectionState.ACTIVATING: "activating",
             NM.ActiveConnectionState.DEACTIVATING: "deactivating",
             NM.ActiveConnectionState.DEACTIVATED: "deactivated",
         }.get(
-            self._device.get_active_connection().get_state(),
+            active_conn.get_state(),
             "disconnected",
         )
 
@@ -294,7 +302,6 @@ class NetworkClient(Service):
                 x
                 for x in devices
                 if x.get_device_type() == device_type
-                and x.get_active_connection() is not None
             ),
             None,
         )
@@ -302,18 +309,22 @@ class NetworkClient(Service):
     def _get_primary_device(self) -> Literal["wifi", "wired"] | None:
         if not self._client:
             return None
+        
+        primary_conn = self._client.get_primary_connection()
+        if not primary_conn:
+            return None
+
         return (
             "wifi"
             if "wireless"
-            in str(self._client.get_primary_connection().get_connection_type())
+            in str(primary_conn.get_connection_type())
             else "wired"
             if "ethernet"
-            in str(self._client.get_primary_connection().get_connection_type())
+            in str(primary_conn.get_connection_type())
             else None
         )
 
     def connect_wifi_bssid(self, bssid):
-        # We are using nmcli here, idk im lazy
         exec_shell_command_async(
             f"nmcli device wifi connect {bssid}", lambda *args: print(args)
         )

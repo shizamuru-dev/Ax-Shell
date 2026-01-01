@@ -1,0 +1,31 @@
+#device-select-btn {
+    background-color: transparent;
+    box-shadow: none;
+    padding: 4px;
+    border-radius: 100%;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+#device-select-btn:hover {
+    background-color: var(--surface-bright);
+}
+
+#device-select-btn.active-device {
+    color: var(--primary);
+}
+
+#device-select-btn label {
+    font-size: 16px;
+}
+
+#mixer-stream-label {
+    font-weight: 600;
+}
+
+#mixer-section-title {
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: var(--primary);
+}
