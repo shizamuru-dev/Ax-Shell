@@ -70,7 +70,7 @@ class WallpaperSelector(Box):
 
     def _restore_wallpaper(self):
         """Восстанавливает обои при запуске приложения"""
-        config_path = os.path.expanduser("~/.config/ax-shell/current_wallpaper")
+        config_path = os.path.expanduser("~/.config/Ax-Shell/current_wallpaper")
         
         if not os.path.exists(config_path):
             return
@@ -229,7 +229,7 @@ class WallpaperSelector(Box):
 
     def _save_current_wallpaper(self, path):
         # Храним путь в текстовом файле, а не в симлинке
-        config_path = os.path.expanduser("~/.config/ax-shell/current_wallpaper")
+        config_path = os.path.expanduser("~/.config/Ax-Shell/current_wallpaper")
         config_dir = os.path.dirname(config_path)
         if not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)

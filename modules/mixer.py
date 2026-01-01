@@ -221,12 +221,12 @@ class Mixer(Box):
         outputs = []
         inputs = []
 
-        if self.audio.speaker:
-            outputs.append(self.audio.speaker)
+        if self.audio.speakers:
+            outputs.extend(self.audio.speakers)
         outputs.extend(self.audio.applications)
 
-        if self.audio.microphone:
-            inputs.append(self.audio.microphone)
+        if self.audio.microphones:
+            inputs.extend(self.audio.microphones)
         inputs.extend(self.audio.recorders)
 
         self.outputs_section.update_streams(outputs)
